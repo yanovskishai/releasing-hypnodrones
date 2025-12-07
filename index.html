@@ -416,6 +416,47 @@
             animation: blink 1.5s infinite;
         }
 
+        /* Mobile touch buttons - terminal style */
+        .mobile-actions {
+            display: none;
+            margin-top: 8px;
+            gap: 12px;
+            opacity: 0;
+            animation: fadeIn 0.15s ease-out forwards;
+        }
+
+        .mobile-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--secondary-color);
+            font-family: var(--font-stack);
+            font-size: 11px;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .mobile-btn:active {
+            background: var(--border-color);
+        }
+
+        .mobile-btn.submit {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        .mobile-btn.skip {
+            border-color: var(--secondary-color);
+        }
+
+        /* Show on touch devices only */
+        @media (pointer: coarse) {
+            .mobile-actions {
+                display: flex;
+            }
+        }
+
         /* Scanline effect (subtle) */
         #terminal-container::before {
             content: '';
@@ -646,10 +687,16 @@
     }
 
     // --- TERMINAL INPUT INFRASTRUCTURE ---
+    let mobileActions = null;
+
     function createTerminalInput(placeholder = '', promptChar = '❯') {
         // Remove existing input if any
         if (inputLine) {
             inputLine.remove();
+        }
+        if (mobileActions) {
+            mobileActions.remove();
+            mobileActions = null;
         }
 
         inputLine = document.createElement('div');
@@ -660,12 +707,41 @@
         userInput = inputLine.querySelector('input');
 
         userInput.addEventListener('keydown', handleInput);
+
+        // Add mobile action buttons (only shown on touch devices via CSS)
+        const showSkip = gameStarted && !isShowingResult && !gameEnded;
+        const buttonLabel = !gameStarted ? '[start]' : (isShowingResult || gameEnded) ? '[continue]' : '[submit]';
+
+        mobileActions = document.createElement('div');
+        mobileActions.className = 'mobile-actions output-line';
+        mobileActions.innerHTML = showSkip
+            ? `<button class="mobile-btn skip" data-action="skip">[skip]</button><button class="mobile-btn submit" data-action="submit">${buttonLabel}</button>`
+            : `<button class="mobile-btn submit" data-action="submit">${buttonLabel}</button>`;
+
+        terminalOutput.appendChild(mobileActions);
+
+        // Handle mobile button clicks
+        mobileActions.querySelectorAll('.mobile-btn').forEach(btn => {
+            btn.addEventListener('click', handleMobileAction);
+        });
+
         terminalOutput.scrollTop = terminalOutput.scrollHeight;
 
         // Small delay to ensure DOM is ready
         setTimeout(() => userInput.focus(), 10);
 
         return userInput;
+    }
+
+    function handleMobileAction(e) {
+        const action = e.target.dataset.action;
+        if (action === 'submit') {
+            // Simulate Enter key
+            handleInput({ key: 'Enter' });
+        } else if (action === 'skip') {
+            // Simulate Escape key
+            handleInput({ key: 'Escape' });
+        }
     }
 
     function setInputDisabled(disabled) {
@@ -941,6 +1017,11 @@
             inputLine.classList.remove('terminal-input-line');
             userInput = null;
             inputLine = null;
+        }
+        // Remove mobile buttons when freezing
+        if (mobileActions) {
+            mobileActions.remove();
+            mobileActions = null;
         }
     }
 
