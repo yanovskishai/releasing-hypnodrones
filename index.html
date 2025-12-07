@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini CLI Culture Decoder</title>
+    <meta name="description" content="A trivia game celebrating the pop culture easter eggs hidden in Gemini CLI's loading phrases. Can you identify the references?">
+
+    <!-- OpenGraph / Social Sharing -->
+    <meta property="og:title" content="Gemini CLI Culture Decoder">
+    <meta property="og:description" content="Someone hid 31 pop culture easter eggs in the Gemini CLI. Can you decode them all?">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Gemini CLI Culture Decoder">
+    <meta name="twitter:description" content="A trivia game for the pop culture easter eggs in Gemini CLI">
+
+    <!-- Favicon: terminal emoji as SVG data URI -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💻</text></svg>">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-color: #0d1117;
+            --terminal-bg: #161b22;
+            --text-color: #c9d1d9;
+            --accent-color: #d2a8ff;
+            --secondary-color: #8b949e;
+            --success-color: #3fb950;
+            --fail-color: #f85149;
+            --border-color: #30363d;
+            --font-stack: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-stack);
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        #terminal-container {
+            width: 100%;
+            max-width: 900px;
+            min-height: 450px;
+            background-color: var(--terminal-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        /* Mobile responsiveness */
+        @media (max-width: 600px) {
+            html, body {
+                height: 100%;
+                height: 100dvh;
+                margin: 0;
+                padding: 0;
+                overflow: hidden;
+            }
+
+            body {
+                padding: 0;
+                font-size: 12px;
+                align-items: stretch;
+                min-height: 100%;
+                min-height: 100dvh;
+            }
+
+            #terminal-container {
+                height: 100%;
+                min-height: 100%;
+                max-width: 100%;
+                border-radius: 0;
+                border: none;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .terminal-header {
+                flex-shrink: 0;
+            }
+
+            .terminal-body {
+                padding: 10px 12px;
+                flex: 1 1 auto;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+                overflow: hidden;
+            }
+
+            .terminal-output {
+                font-size: 11px;
+                flex: 1 1 auto;
+                max-height: none !important;
+                min-height: 0;
+                overflow-x: hidden;
+                overflow-y: auto;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+            }
+
+            .output-line {
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                white-space: pre-wrap;
+            }
+
+            .phrase-line {
+                font-size: 12px;
+                word-wrap: break-word;
+            }
+
+            .terminal-input-line {
+                flex-wrap: nowrap;
+            }
+
+            .terminal-input-line input {
+                font-size: 16px; /* Prevents iOS zoom on focus */
+                min-width: 0;
+            }
+
+            .terminal-title {
+                font-size: 10px;
+            }
+
+            /* Truncate long separator lines */
+            .separator {
+                overflow: hidden;
+                text-overflow: clip;
+                white-space: nowrap;
+                max-width: 100%;
+                display: block;
+            }
+        }
+
+        /* Terminal title bar */
+        .terminal-header {
+            background: linear-gradient(180deg, #2d333b 0%, #22272e 100%);
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .terminal-btn {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: none;
+        }
+        .terminal-btn.close { background: #f85149; }
+        .terminal-btn.minimize { background: #d29922; }
+        .terminal-btn.maximize { background: #3fb950; }
+
+        .terminal-title {
+            flex-grow: 1;
+            text-align: center;
+            color: var(--secondary-color);
+            font-size: 12px;
+        }
+
+        .info-btn {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            border: 1px solid var(--secondary-color);
+            background: transparent;
+            color: var(--secondary-color);
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            font-family: var(--font-stack);
+        }
+
+        .info-btn:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+
+        /* Info Modal */
+        .info-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .info-modal-overlay.visible {
+            display: flex;
+        }
+
+        .info-modal {
+            background: var(--terminal-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 20px;
+            position: relative;
+        }
+
+        .info-modal h2 {
+            color: var(--accent-color);
+            font-size: 16px;
+            margin: 0 0 16px 0;
+            font-weight: 700;
+        }
+
+        .info-modal p {
+            color: var(--text-color);
+            font-size: 13px;
+            line-height: 1.6;
+            margin: 0 0 12px 0;
+        }
+
+        .info-modal a {
+            color: var(--accent-color);
+        }
+
+        .info-modal .disclaimer {
+            color: var(--secondary-color);
+            font-size: 11px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 12px;
+            margin-top: 16px;
+        }
+
+        .info-modal .close-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: transparent;
+            border: none;
+            color: var(--secondary-color);
+            font-size: 18px;
+            cursor: pointer;
+            padding: 4px 8px;
+            line-height: 1;
+        }
+
+        .info-modal .close-btn:hover {
+            color: var(--text-color);
+        }
+
+        .terminal-body {
+            padding: 16px 20px;
+        }
+
+        /* Terminal output lines */
+        .terminal-output {
+            font-size: 13px;
+            line-height: 1.7;
+            max-height: 350px;
+            overflow-y: auto;
+        }
+
+        .terminal-output::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .terminal-output::-webkit-scrollbar-track {
+            background: var(--bg-color);
+        }
+
+        .terminal-output::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        .terminal-output::-webkit-scrollbar-thumb:hover {
+            background: var(--secondary-color);
+        }
+
+        .output-line {
+            margin-bottom: 2px;
+            opacity: 0;
+            animation: fadeIn 0.15s ease-out forwards;
+        }
+
+        .output-line.dim {
+            color: var(--secondary-color);
+        }
+
+        .output-line .prompt {
+            color: var(--success-color);
+        }
+
+        .output-line .cmd {
+            color: var(--text-color);
+        }
+
+        .output-line .path {
+            color: var(--accent-color);
+        }
+
+        .output-line .flag {
+            color: #79c0ff;
+        }
+
+        .output-line .comment {
+            color: var(--secondary-color);
+            font-style: italic;
+        }
+
+        .output-line .timestamp {
+            color: var(--secondary-color);
+            font-size: 11px;
+            margin-right: 8px;
+        }
+
+        .output-line .success {
+            color: var(--success-color);
+        }
+
+        .output-line .info {
+            color: #58a6ff;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-2px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Phrase line in terminal */
+        .phrase-line {
+            color: var(--accent-color);
+            font-size: 13px;
+            white-space: pre-wrap;
+            text-shadow: 0 0 15px rgba(210, 168, 255, 0.2);
+        }
+
+        .phrase-line .spinner {
+            margin-right: 8px;
+            display: inline-block;
+            min-width: 1em;
+        }
+
+        /* Cursor animation for typing */
+        .typing-cursor::after {
+            content: '█';
+            display: inline-block;
+            animation: blink 1s step-start infinite;
+            color: var(--accent-color);
+        }
+
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+        /* Terminal input line - looks like part of output */
+        .terminal-input-line {
+            display: flex;
+            align-items: center;
+            margin-top: 4px;
+        }
+
+        .terminal-input-line .prompt-char {
+            color: var(--accent-color);
+            margin-right: 8px;
+            font-weight: bold;
+        }
+
+        .terminal-input-line input {
+            background: transparent;
+            border: none;
+            color: var(--text-color);
+            font-family: var(--font-stack);
+            font-size: 13px;
+            flex-grow: 1;
+            outline: none;
+            padding: 0;
+            caret-color: var(--accent-color);
+        }
+
+        .terminal-input-line input::placeholder {
+            color: var(--secondary-color);
+            opacity: 0.5;
+            font-style: italic;
+        }
+
+        .terminal-input-line.disabled {
+            opacity: 0.6;
+        }
+
+        .terminal-input-line.disabled input {
+            cursor: not-allowed;
+        }
+
+        .blink-text {
+            animation: blink 1.5s infinite;
+        }
+
+        /* Scanline effect (subtle) */
+        #terminal-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.03),
+                rgba(0, 0, 0, 0.03) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            pointer-events: none;
+            border-radius: 8px;
+        }
+
+        #terminal-container {
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+
+<div id="terminal-container">
+    <div class="terminal-header">
+        <span class="terminal-btn close"></span>
+        <span class="terminal-btn minimize"></span>
+        <span class="terminal-btn maximize"></span>
+        <span class="terminal-title">gemini-trivia — zsh — 80×24</span>
+        <button class="info-btn" id="info-btn" title="About this project" aria-label="About this project">?</button>
+    </div>
+    <div class="terminal-body">
+        <div class="terminal-output" id="terminal-output" role="log" aria-live="polite" aria-label="Game output"></div>
+    </div>
+</div>
+
+<!-- Info Modal -->
+<div class="info-modal-overlay" id="info-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="info-modal">
+        <button class="close-btn" id="modal-close" aria-label="Close dialog">&times;</button>
+        <h2 id="modal-title">✦ About This Project</h2>
+        <p>
+            This is an unofficial fan-made trivia game celebrating the witty pop culture easter eggs
+            hidden in the loading messages of <a href="https://github.com/google-gemini/gemini-cli" target="_blank" rel="noopener noreferrer">Gemini CLI</a>.
+        </p>
+        <p>
+            The phrases referenced here are found in the Gemini CLI source code at
+            <code style="color:var(--accent-color);font-size:11px;">packages/cli/src/ui/constants/wittyPhrases.ts</code>
+        </p>
+        <p>
+            Built as a tribute to the developers who took the time to add these delightful references
+            to movies, games, music, and internet culture.
+        </p>
+        <div class="disclaimer">
+            <strong>Legal Disclaimer:</strong> This project is not affiliated with, endorsed by, or
+            sponsored by Google or the Gemini CLI team. "Gemini" is a trademark of Google LLC.
+            All pop culture references belong to their respective copyright holders. This is a
+            non-commercial fan project created for educational and entertainment purposes only.
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- THE DATA ---
+    // Structured data derived from the Gemini CLI source code analysis.
+    const phraseData = [
+        { phrase: "Reticulating splines...", source: "SimCity 2000", expl: "The iconic synthesized voice phrase heard during game's terrain generation loading screen.", link: "https://en.wikipedia.org/wiki/SimCity_2000#Development" },
+        { phrase: "The cake is not a lie, it's just still loading...", source: "Portal", expl: "A play on the graffiti 'The cake is a lie' found throughout the game's test chambers.", link: "https://knowyourmeme.com/memes/the-cake-is-a-lie" },
+        { phrase: "Constructing additional pylons...", source: "StarCraft", expl: "The alert played by the Protoss advisor when the player lacks supply cap.", link: "https://knowyourmeme.com/memes/you-must-construct-additional-pylons" },
+        { phrase: "Loading... Do a barrel roll!", source: "Star Fox 64", expl: "Peppy Hare's famously repeated advice to Fox McCloud during combat.", link: "https://knowyourmeme.com/memes/do-a-barrel-roll" },
+        { phrase: "Finishing the Kessel Run in less than 12 parsecs...", source: "Star Wars", expl: "Han Solo's boast about the speed/navigation capabilities of the Millennium Falcon.", link: "https://starwars.fandom.com/wiki/Kessel_Run" },
+        { phrase: "Channeling the Force...", source: "Star Wars", expl: "Referring to the metaphysical power field used by Jedi and Sith.", link: "https://en.wikipedia.org/wiki/The_Force" },
+        { phrase: "I've got a good feeling about this...", source: "Star Wars", expl: "An inversion of the running gag phrase 'I have a bad feeling about this' spoken in every movie.", link: "https://starwars.fandom.com/wiki/I_have_a_bad_feeling_about_this" },
+        { phrase: "Engage.", source: "Star Trek: TNG", expl: "Captain Jean-Luc Picard's signature command to activate the warp drive.", link: "https://en.wikipedia.org/wiki/Jean-Luc_Picard" },
+        { phrase: "Warp speed engaged...", source: "Star Trek", expl: "The command given to travel faster than light using a warp drive.", link: "https://en.wikipedia.org/wiki/Warp_drive" },
+        { phrase: "Mining for more Dilithium crystals...", source: "Star Trek", expl: "Dilithium is the fictional material required to regulate the matter/antimatter reaction in warp cores.", link: "https://en.wikipedia.org/wiki/Dilithium_(Star_Trek)" },
+        { phrase: "I'm Giving Her all she's got Captain!", source: "Star Trek: TOS", expl: "Chief Engineer Scotty's frequent plea when pushed to the limit.", link: "https://knowyourmeme.com/memes/giving-her-all-shes-got-captain" },
+        { phrase: "So say we all...", source: "Battlestar Galactica", expl: "The ceremonial affirmation and battle cry used by the Colonials.", link: "https://en.wikipedia.org/wiki/Battlestar_Galactica_(2004_TV_series)" },
+        { phrase: "My other process is a TARDIS...", source: "Doctor Who", expl: "A play on 'My other car is a...' stickers, referencing the time machine that is bigger on the inside.", link: "https://en.wikipedia.org/wiki/TARDIS" },
+        { phrase: "Don't panic...", source: "Hitchhiker's Guide to the Galaxy", expl: "The phrase written in large, friendly letters on the cover of the titular fictional book.", link: "https://en.wikipedia.org/wiki/Phrases_from_The_Hitchhiker%27s_Guide_to_the_Galaxy#Don't_Panic" },
+        { phrase: "Engaging the improbability drive...", source: "Hitchhiker's Guide to the Galaxy", expl: "A propulsion method that allows a ship to be at every point in the universe simultaneously.", link: "https://en.wikipedia.org/wiki/Technology_in_The_Hitchhiker%27s_Guide_to_the_Galaxy#Infinite_Improbability_Drive" },
+        { phrase: "Optimizing for ludicrous speed", source: "Spaceballs", expl: "A speed setting on the Spaceball One that is dangerously faster than light speed.", link: "https://spaceballs.fandom.com/wiki/Ludicrous_Speed" },
+        { phrase: "Following the white rabbit...", source: "The Matrix", expl: "The clue Neo follows to discover the truth about the Matrix, originally from Lewis Carroll.", link: "https://en.wikipedia.org/wiki/The_Matrix" },
+        { phrase: "I've seen things you people wouldn't believe...", source: "Blade Runner", expl: "The opening line of the 'Tears in Rain' monologue delivered by replicant Roy Batty.", link: "https://en.wikipedia.org/wiki/Tears_in_rain_monologue" },
+        { phrase: "The truth is in here... somewhere...", source: "The X-Files", expl: "A play on the show's tagline 'The Truth Is Out There.'", link: "https://en.wikipedia.org/wiki/The_X-Files" },
+        { phrase: "Calibrating the flux capacitor...", source: "Back to the Future", expl: "The core component that makes time travel possible in the DeLorean.", link: "https://en.wikipedia.org/wiki/DeLorean_time_machine#Flux_capacitor" },
+        { phrase: "Are you not entertained? (Working on it!)", source: "Gladiator", expl: "Maximus's shout to the crowd after winning a fight effortlessly.", link: "https://knowyourmeme.com/memes/are-you-not-entertained" },
+        { phrase: "Tasting the snozberries...", source: "Willy Wonka / Super Troopers", expl: "A line about flavored wallpaper, famously referenced in Super Troopers in a bizarre context.", link: "https://www.youtube.com/watch?v=fyKLGA37MBU" },
+        { phrase: "Looking for the princess in another castle...", source: "Super Mario Bros.", expl: "The message Toad delivers to Mario at the end of every world until the final one.", link: "https://knowyourmeme.com/memes/but-our-princess-is-in-another-castle" },
+        { phrase: "Pressing 'A' to continue...", source: "Console Gaming", expl: "A standard prompt found in almost all Nintendo and Xbox video games.", link: "https://en.wikipedia.org/wiki/User_interface" },
+        { phrase: "Waiting for the respawn...", source: "Gaming", expl: "The time a player waits after dying before they can play again in multiplayer games.", link: "https://en.wikipedia.org/wiki/Spawning_(gaming)" },
+        { phrase: "Blowing on the cartridge...", source: "Nintendo (NES) Culture", expl: "A widespread myth/habit where players blew into game cartridges to fix connection issues.", link: "https://www.mentalfloss.com/article/12589/did-blowing-nintendo-cartridges-really-help" },
+        { phrase: "Running sudo make me a sandwich...", source: "XKCD", expl: "A reference to a famous comic about command line permissions and sandwich making.", link: "https://xkcd.com/149/" },
+        { phrase: "Trying to exit Vim...", source: "Developer Culture", expl: "A notorious running joke about how difficult it is for beginners to close the Vim text editor.", link: "https://stackoverflow.com/questions/11828270/how-do-i-exit-the-vim-editor" },
+        { phrase: "Checking for syntax errors in the universe...", source: "Simulation Theory", expl: "A philosophical joke implying reality is just code that can have bugs.", link: "https://en.wikipedia.org/wiki/Simulation_hypothesis" },
+        { phrase: "Rewriting in Rust for no particular reason...", source: "Developer Culture", expl: "A trend where developers rewrite existing tools in the Rust language for performance/safety.", link: "https://knowyourmeme.com/memes/rewrite-it-in-rust" },
+        { phrase: "Have you tried turning it off and on again?...", source: "The IT Crowd", expl: "The catchphrase of the tech support team in the British sitcom.", link: "https://en.wikipedia.org/wiki/The_IT_Crowd" },
+        { phrase: "Slapping the bass...", source: "I Love You, Man", expl: "A memorable awkward quote from Paul Rudd's character attempting to sound cool.", link: "https://www.youtube.com/watch?v=nz8uzuJxufo" },
+        { phrase: "Rickrolling my boss...", source: "Internet Culture (Rick Astley)", expl: "Pranking someone by linking them to Rick Astley's 'Never Gonna Give You Up.'", link: "https://en.wikipedia.org/wiki/Rickrolling" },
+        { phrase: "Never gonna give you up...", source: "Rick Astley", expl: "The lyrics to the song used for Rickrolling.", link: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
+        { phrase: "Is this the real life? Is this just fantasy?...", source: "Queen", expl: "The opening lyrics to the legendary song 'Bohemian Rhapsody.'", link: "https://en.wikipedia.org/wiki/Bohemian_Rhapsody" },
+        { phrase: "I'm going the distance, I'm going for speed...", source: "Cake (Band)", expl: "Lyrics from the song 'The Distance' by the band Cake.", link: "https://en.wikipedia.org/wiki/The_Distance_(Cake_song)" },
+        { phrase: "Asking the magic conch shell...", source: "SpongeBob SquarePants", expl: "SpongeBob and Patrick rely on a toy conch shell to make all their decisions in an episode.", link: "https://spongebob.fandom.com/wiki/Magic_Conch_Shell" },
+        { phrase: "I'm Feeling Lucky", source: "Google", expl: "The button on the Google homepage that takes you directly to the first result.", link: "https://en.wikipedia.org/wiki/Google_Search#I'm_Feeling_Lucky" },
+        { phrase: "Ensuring the magic smoke stays inside...", source: "Electronics Eng. Humor", expl: "A joke that electronic components run on 'magic smoke'; when it escapes, they stop working.", link: "https://en.wikipedia.org/wiki/Magic_smoke" },
+        { phrase: "What do you call a fish with no eyes? A fsh...", source: "Dad Jokes", expl: "A classic pun relying on the pronunciation of 'fish' without the 'i'.", link: "https://en.wikipedia.org/wiki/Pun" },
+        { phrase: "New line? That’s Ctrl+J.", source: "ASCII / Terminal Header", expl: "Technical reference where Ctrl+J sends the Line Feed (LF) character.", link: "https://en.wikipedia.org/wiki/Control-J" },
+        { phrase: "Navigating the slime mold...", source: "Biology / Science", expl: "Reference to slime molds' ability to solve mazes and form efficient networks.", link: "https://en.wikipedia.org/wiki/Slime_mold#Intelligence" },
+        { phrase: "Releasing the HypnoDrones...", source: "Sci-Fi / Gaming", expl: "Likely a reference to Supreme Commander (Cybran units) or generic sci-fi mind control tropes.", link: "https://supcom.fandom.com/wiki/Cybran" },
+        { phrase: "Herding digital cats...", source: "Management Idiom", expl: "A phrase describing the difficulty of managing a chaotic group (or complex async code).", link: "https://en.wikipedia.org/wiki/Herding_cats" },
+        { phrase: "Pondering the orb...", source: "Internet Meme", expl: "A meme featuring a wizard staring intently into a crystal ball.", link: "https://knowyourmeme.com/memes/pondering-my-orb" },
+        { phrase: "Painting the serifs back on...", source: "Typography", expl: "A joke about the meticulous detail of converting sans-serif fonts to serif fonts manually.", link: "https://en.wikipedia.org/wiki/Serif" },
+        { phrase: "Consulting the digital spirits...", source: "Warhammer 40k / Tech Animism", expl: "Anthropomorphizing the computer as having a spirit that must be appeased.", link: "https://warhammer40k.fandom.com/wiki/Machine_Spirit" },
+        { phrase: "Shipping awesomeness...", source: "Startup Culture", expl: "Generic enthusiastic phrase for deploying software.", link: "#" },
+        { phrase: "Warming up the AI hamsters...", source: "Tech Humor", expl: "Suggesting the computer is powered by hamsters running in wheels.", link: "https://tvtropes.org/pmwiki/pmwiki.php/Main/HamsterWheelPower" },
+        { phrase: "Polishing the algorithms...", source: "Dev Jargon", expl: "A fancy way of saying 'fixing code' or 'making it look nice.'", link: "#" },
+        { phrase: "Counting electrons...", source: "Physics / Tech", expl: "An impossibly granular task used to describe processing time.", link: "#" },
+        { phrase: "Entangling quantum particles...", source: "Quantum Computing", expl: "Reference to quantum entanglement, often used as a sci-fi buzzword for 'fast connection'.", link: "https://en.wikipedia.org/wiki/Quantum_entanglement" },
+        { phrase: "Confuzzling the options...", source: "Slang", expl: "A portmanteau of 'confused' and 'puzzled'.", link: "https://en.wiktionary.org/wiki/confuzzled" },
+        { phrase: "Garbage collecting...", source: "Computer Science", expl: "The process of automatic memory management in programming languages.", link: "https://en.wikipedia.org/wiki/Garbage_collection_(computer_science)" },
+        { phrase: "Resolving dependencies...", source: "Package Management", expl: "The often painful process of ensuring all software libraries work together (e.g., npm install).", link: "https://en.wikipedia.org/wiki/Dependency_hell" },
+        { phrase: "Converting coffee into code...", source: "Dev Culture", expl: "The cliché that programmers function primarily on caffeine.", link: "#" },
+        { phrase: "Applying percussive maintenance...", source: "Engineering Slang", expl: "Fixing a device by hitting it.", link: "https://en.wiktionary.org/wiki/percussive_maintenance" },
+        { phrase: "Searching for correct USB orientation...", source: "Tech Humor", expl: "The universal struggle of plugging a USB-A cable in, which takes 3 tries.", link: "https://knowyourmeme.com/memes/usb-plug-confusion" },
+        { phrase: "Why do Java developers wear glasses?...", source: "Programming Joke", expl: "Because they don't C# (See Sharp).", link: "#" },
+        { phrase: "Why don't programmers like nature?...", source: "Programming Joke", expl: "It has too many bugs.", link: "#" },
+        { phrase: "What can you do with a broken pencil?...", source: "Dad Joke", expl: "Nothing, it's pointless.", link: "#" },
+        { phrase: "Poking the bear...", source: "Idiom", expl: "Provoking someone or something powerful.", link: "https://en.wiktionary.org/wiki/poke_the_bear" }
+    ];
+
+    // --- CLI SPINNER ---
+    const spinner = { frames: ['⣷', '⣯', '⣟', '⡿', '⢿', '⣻', '⣽', '⣾'], interval: 120 };
+    let spinnerInterval = null;
+
+    // --- GAME STATE ---
+    let currentPhraseIndex = -1;
+    let isJudging = false;
+    let isShowingResult = false;
+    let gameStarted = false;
+    let gameEnded = false;
+    let showingIntro = true;
+    const processedIndices = new Set();
+    let score = { correct: 0, incorrect: 0, skipped: 0 };
+
+    // --- DOM ELEMENTS ---
+    const terminalOutput = document.getElementById('terminal-output');
+    let userInput = null;  // Will be created dynamically as part of terminal flow
+    let inputLine = null;  // The container for the input
+    let currentPhraseLine = null;  // Reference to the phrase line for spinner
+
+    // --- WITTY MESSAGES ---
+    const correctMessages = [
+        "Your nerd credentials check out.",
+        "The Force is strong with this one.",
+        "Achievement unlocked: Cultural Literacy",
+        "You clearly didn't skip the 90s.",
+        "Someone's been doing their homework.",
+        "The council approves.",
+        "Your PR has been approved.",
+        "git commit -m 'nailed it'",
+    ];
+
+    const incorrectMessages = [
+        "Have you tried turning your brain off and on again?",
+        "That's... not even close. But points for creativity.",
+        "The princess is in another answer.",
+        "ERROR 404: Correct answer not found in your response.",
+        "Your guess has been yeeted into the void.",
+        "The magic 8-ball says: Try again.",
+        "sudo get-correct-answer denied.",
+        "That answer failed the vibe check.",
+    ];
+
+    const skipMessages = [
+        "Tactical retreat acknowledged.",
+        "Discretion is the better part of valor.",
+        "Even Han Solo knew when to jump to hyperspace.",
+        "Skip logged. No judgment. Okay, maybe a little.",
+        "Strategic withdrawal executed.",
+    ];
+
+    function getRandomMessage(arr) {
+        return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    // --- TERMINAL OUTPUT FUNCTIONS ---
+    function getTimestamp() {
+        const now = new Date();
+        return now.toTimeString().split(' ')[0];
+    }
+
+    // Responsive separator - shorter on mobile
+    function getSeparator(char = '─', cssClass = 'dim') {
+        return `<span class="${cssClass} separator">${char.repeat(50)}</span>`;
+    }
+
+    // Format link for display - smart truncation
+    function formatLink(url) {
+        if (url === '#') return '(no link available)';
+        const display = url.replace('https://', '').replace('http://', '');
+        if (display.length <= 50) return display;
+        return display.substring(0, 47) + '...';
+    }
+
+    function addOutputLine(html, delay = 0) {
+        return new Promise(resolve => {
+            setTimeout(() => {
+                const line = document.createElement('div');
+                line.className = 'output-line';
+                line.innerHTML = html;
+                line.style.animationDelay = '0s';
+                terminalOutput.appendChild(line);
+                // Auto-scroll to bottom
+                terminalOutput.scrollTop = terminalOutput.scrollHeight;
+                resolve();
+            }, delay);
+        });
+    }
+
+    function clearOutput() {
+        terminalOutput.innerHTML = '';
+        userInput = null;
+        inputLine = null;
+        currentPhraseLine = null;
+    }
+
+    // --- TERMINAL INPUT INFRASTRUCTURE ---
+    function createTerminalInput(placeholder = '', promptChar = '❯') {
+        // Remove existing input if any
+        if (inputLine) {
+            inputLine.remove();
+        }
+
+        inputLine = document.createElement('div');
+        inputLine.className = 'terminal-input-line output-line';
+        inputLine.innerHTML = `<span class="prompt-char">${promptChar}</span><input type="text" autocomplete="off" spellcheck="false" placeholder="${placeholder}">`;
+
+        terminalOutput.appendChild(inputLine);
+        userInput = inputLine.querySelector('input');
+
+        userInput.addEventListener('keydown', handleInput);
+        terminalOutput.scrollTop = terminalOutput.scrollHeight;
+
+        // Small delay to ensure DOM is ready
+        setTimeout(() => userInput.focus(), 10);
+
+        return userInput;
+    }
+
+    function setInputDisabled(disabled) {
+        if (inputLine) {
+            inputLine.classList.toggle('disabled', disabled);
+        }
+        if (userInput) {
+            userInput.disabled = disabled;
+        }
+    }
+
+    function setInputPlaceholder(text) {
+        if (userInput) {
+            userInput.placeholder = text;
+        }
+    }
+
+    function focusInput() {
+        if (userInput && !userInput.disabled) {
+            userInput.focus();
+        }
+    }
+
+    // Add phrase as terminal line with spinner
+    function addPhraseLine(text) {
+        return new Promise(resolve => {
+            const line = document.createElement('div');
+            line.className = 'output-line phrase-line';
+            line.innerHTML = `<span class="spinner"></span><span class="phrase-text typing-cursor"></span>`;
+            terminalOutput.appendChild(line);
+            currentPhraseLine = line;
+
+            const spinnerEl = line.querySelector('.spinner');
+            const textEl = line.querySelector('.phrase-text');
+
+            // Start spinner
+            startSpinner(spinnerEl);
+
+            // Typewriter effect
+            let i = 0;
+            function type() {
+                if (i < text.length) {
+                    textEl.textContent += text.charAt(i);
+                    terminalOutput.scrollTop = terminalOutput.scrollHeight;
+                    i++;
+                    setTimeout(type, 30);
+                } else {
+                    textEl.classList.remove('typing-cursor');
+                    resolve();
+                }
+            }
+            type();
+        });
+    }
+
+    // --- INTRO SEQUENCE ---
+    async function showIntroSequence() {
+        showingIntro = true;
+
+        await addOutputLine(`<span class="prompt">you@local</span>:<span class="path">~/gemini-cli</span>$ <span class="cmd">cd packages/cli/src/ui</span>`);
+        await addOutputLine(`<span class="prompt">you@local</span>:<span class="path">~/gemini-cli/packages/cli/src/ui</span>$ <span class="cmd">ls</span>`, 300);
+        await addOutputLine(`<span class="dim">components/  hooks/  constants/  utils/</span>`, 150);
+        await addOutputLine(`<span class="prompt">you@local</span>:<span class="path">~/...cli/src/ui</span>$ <span class="cmd">cat constants/wittyPhrases.ts</span>`, 400);
+        await addOutputLine(``, 200);
+        await addOutputLine(`<span class="dim">// Found in: packages/cli/src/ui/constants/wittyPhrases.ts</span>`, 100);
+        await addOutputLine(`<span class="dim">// Used by:  packages/cli/src/ui/hooks/usePhraseCycler.ts</span>`, 80);
+        await addOutputLine(``, 100);
+        await addOutputLine(`<span style="color:#ff7b72">export const</span> <span class="info">wittyPhrases</span> = [`, 80);
+        await addOutputLine(`  <span class="path">"Reticulating splines..."</span>,`, 60);
+        await addOutputLine(`  <span class="path">"Constructing additional pylons..."</span>,`, 60);
+        await addOutputLine(`  <span class="path">"Calibrating the flux capacitor..."</span>,`, 60);
+        await addOutputLine(`  <span class="dim">// ... ${phraseData.length - 3} more phrases</span>`, 60);
+        await addOutputLine(`];`, 60);
+        await addOutputLine(``, 200);
+        await addOutputLine(`<span class="prompt">you@local</span>:<span class="path">~/...cli/src/ui</span>$ <span class="dim"># Wait... are these all pop culture references?</span>`, 500);
+        await addOutputLine(`<span class="prompt">you@local</span>:<span class="path">~/...cli/src/ui</span>$ <span class="cmd">gemini-cli easter-egg</span> <span class="flag">--decode-references</span>`, 600);
+        await addOutputLine(``, 150);
+        await addOutputLine(`<span class="success">✦ GEMINI CLI CULTURE DECODER ✦</span>`, 100);
+        await addOutputLine(getSeparator('━', 'dim'), 80);
+        await addOutputLine(``, 50);
+        await addOutputLine(`<span class="dim">Someone hid ${phraseData.length} pop culture easter eggs in the CLI.</span>`, 100);
+        await addOutputLine(`<span class="dim">Your mission: identify the source of each loading phrase.</span>`, 100);
+        await addOutputLine(``, 50);
+        await addOutputLine(`<span class="dim">  • Type your answer and press</span> <span class="info">Enter</span>`, 80);
+        await addOutputLine(`<span class="dim">  • Press</span> <span class="info">Esc</span> <span class="dim">to skip (no shame, these are obscure)</span>`, 80);
+        await addOutputLine(`<span class="dim">  • Answers are fuzzy-matched (close enough counts)</span>`, 80);
+        await addOutputLine(``, 100);
+        await addOutputLine(getSeparator('━', 'dim'), 50);
+        await addOutputLine(`<span class="blink-text" style="color:var(--accent-color)">↵ Press Enter to start decoding...</span>`, 100);
+
+        showingIntro = false;
+        createTerminalInput('press enter to begin...');
+    }
+
+    async function showQuestionSequence() {
+        const total = score.correct + score.incorrect + score.skipped;
+        const questionNum = total + 1;
+
+        await addOutputLine(`<span class="prompt">decoder</span>:<span class="path">~/phrases</span>$ <span class="cmd">./identify.sh</span> <span class="flag">--phrase=${questionNum}</span>`);
+        await addOutputLine(`<span class="timestamp">[${getTimestamp()}]</span> <span class="dim">Loading phrase ${questionNum} of ${phraseData.length}...</span>`, 60);
+        await addOutputLine(`<span class="timestamp">[${getTimestamp()}]</span> Score: <span class="success">${score.correct}</span> correct · <span style="color:var(--fail-color)">${score.incorrect}</span> wrong · <span class="dim">${score.skipped} skipped</span>`, 60);
+        await addOutputLine(getSeparator('─', 'dim'), 40);
+        await addOutputLine(``, 20);
+        await addOutputLine(`<span class="dim">What's the source of this loading message?</span>`, 40);
+    }
+
+    async function startFirstQuestion() {
+        let nextIndex = Math.floor(Math.random() * phraseData.length);
+        currentPhraseIndex = nextIndex;
+        processedIndices.add(nextIndex);
+
+        // Reset state
+        isShowingResult = false;
+
+        // Show question sequence (continues scrolling from intro)
+        await showQuestionSequence();
+        await addPhraseLine(phraseData[currentPhraseIndex].phrase);
+        await addOutputLine(``, 20);
+        createTerminalInput('enter source...');
+    }
+
+    // --- SPINNER FUNCTIONS ---
+
+    function startSpinner(element) {
+        let frameIndex = 0;
+        spinnerInterval = setInterval(() => {
+            element.textContent = spinner.frames[frameIndex];
+            frameIndex = (frameIndex + 1) % spinner.frames.length;
+        }, spinner.interval);
+    }
+
+    function stopSpinner() {
+        if (spinnerInterval) {
+            clearInterval(spinnerInterval);
+            spinnerInterval = null;
+        }
+    }
+
+    async function loadNextPhrase() {
+        if (processedIndices.size === phraseData.length) {
+            await showEndSequence();
+            return;
+        }
+
+        let nextIndex;
+        do {
+            nextIndex = Math.floor(Math.random() * phraseData.length);
+        } while (processedIndices.has(nextIndex));
+
+        currentPhraseIndex = nextIndex;
+        processedIndices.add(nextIndex);
+
+        // Reset state
+        isShowingResult = false;
+
+        // Show question sequence (continues scrolling - no clear)
+        await addOutputLine(``, 40);
+        await showQuestionSequence();
+        await addPhraseLine(phraseData[currentPhraseIndex].phrase);
+        await addOutputLine(``, 20);
+        createTerminalInput('enter source...');
+    }
+
+    async function showEndSequence() {
+        // Continue scrolling - no clear, just like a real terminal
+        await addOutputLine(``, 40);
+
+        const percentage = Math.round((score.correct / phraseData.length) * 100);
+        let verdict = '';
+        let verdictColor = 'var(--secondary-color)';
+
+        if (percentage >= 90) {
+            verdict = "LEGENDARY. You ARE the culture.";
+            verdictColor = 'var(--accent-color)';
+        } else if (percentage >= 70) {
+            verdict = "Impressive. Your references are strong.";
+            verdictColor = 'var(--success-color)';
+        } else if (percentage >= 50) {
+            verdict = "Not bad. The Force is developing.";
+            verdictColor = 'var(--info-color)';
+        } else if (percentage >= 30) {
+            verdict = "You might need to watch more movies.";
+            verdictColor = 'var(--secondary-color)';
+        } else {
+            verdict = "Have you tried turning your pop culture knowledge off and on again?";
+            verdictColor = 'var(--fail-color)';
+        }
+
+        await addOutputLine(`<span class="prompt">decoder</span>:<span class="path">~/phrases</span>$ <span class="cmd">./summary.sh</span>`);
+        await addOutputLine(``, 100);
+        await addOutputLine(getSeparator('━', 'success'), 80);
+        await addOutputLine(`<span class="success">  ✦ DECODING COMPLETE ✦</span>`, 80);
+        await addOutputLine(getSeparator('━', 'success'), 80);
+        await addOutputLine(``, 100);
+        await addOutputLine(`<span class="dim">  Phrases decoded:</span>  <span class="info">${phraseData.length}</span>`, 80);
+        await addOutputLine(`<span class="dim">  Correct answers:</span> <span class="success">${score.correct}</span>`, 80);
+        await addOutputLine(`<span class="dim">  Wrong answers:</span>   <span style="color:var(--fail-color)">${score.incorrect}</span>`, 80);
+        await addOutputLine(`<span class="dim">  Skipped:</span>         <span class="dim">${score.skipped}</span>`, 80);
+        await addOutputLine(`<span class="dim">  Accuracy:</span>        <span style="color:${verdictColor}">${percentage}%</span>`, 80);
+        await addOutputLine(``, 100);
+        await addOutputLine(`<span class="dim">  Verdict:</span> <span style="color:${verdictColor}">${verdict}</span>`, 100);
+        await addOutputLine(``, 100);
+        await addOutputLine(getSeparator('━', 'dim'), 50);
+        await addOutputLine(``, 80);
+        await addOutputLine(`<span class="dim">These easter eggs live in the Gemini CLI source:</span>`, 80);
+        await addOutputLine(`<span class="path">  packages/cli/src/ui/constants/wittyPhrases.ts</span>`, 60);
+        await addOutputLine(`<span class="path">  packages/cli/src/ui/hooks/usePhraseCycler.ts</span>`, 60);
+        await addOutputLine(``, 100);
+        await addOutputLine(`<span class="prompt">decoder</span>:<span class="path">~/phrases</span>$ <span class="dim">exit</span>`, 200);
+        await addOutputLine(`<span class="dim">Thanks for playing!</span>`, 100);
+        await addOutputLine(``, 150);
+        await addOutputLine(getSeparator('─', 'dim'), 50);
+        await addOutputLine(`<span class="dim">A tribute to the easter eggs in</span> <a href="https://github.com/google-gemini/gemini-cli" target="_blank" rel="noopener noreferrer" style="color:var(--accent-color)">Gemini CLI</a>`, 80);
+        await addOutputLine(``, 100);
+        await addOutputLine(`<span class="blink-text" style="color:var(--accent-color)">↵ Press Enter to play again...</span>`, 80);
+
+        // Create input for restart
+        gameEnded = true;
+        createTerminalInput('press enter to restart...');
+    }
+
+    // Restart the game
+    function restartGame() {
+        gameStarted = false;
+        gameEnded = false;
+        currentPhraseIndex = -1;
+        isJudging = false;
+        isShowingResult = false;
+        showingIntro = true;
+        processedIndices.clear();
+        score = { correct: 0, incorrect: 0, skipped: 0 };
+        clearOutput();
+        showIntroSequence();
+    }
+
+    // --- MOCK LLM JUDGMENT FUNCTION ---
+    // NOTE: In a real environment, this function would make an API call to your backend.
+    async function mockLLMJudgment(userGuess, correctSource) {
+        isJudging = true;
+        setInputDisabled(true);
+        setInputPlaceholder('Consulting the digital spirits...');
+
+        // Simulate network latency
+        await new Promise(resolve => setTimeout(resolve, 1200));
+
+        // --- SIMULATED LLM LOGIC ---
+        // This is a basic string matching placeholder.
+        // A real LLM prompt would be: "The user guessed '{userGuess}' for the source. The actual source is '{correctSource}'. Is the user correct? Accept slight variations."
+        const cleanGuess = userGuess.toLowerCase().trim().replace(/[^\w\s]/gi, '');
+        const cleanSource = correctSource.toLowerCase().trim().replace(/[^\w\s]/gi, '');
+
+        // Simple inclusion check for demo purposes
+        let isCorrect = false;
+        if (cleanGuess.length > 2 && (cleanSource.includes(cleanGuess) || cleanGuess.includes(cleanSource))) {
+            isCorrect = true;
+        }
+
+        // Hardcoded exceptions for common variations (Simulating LLM understanding context)
+        if (cleanSource.includes("star trek") && cleanGuess.includes("trek")) isCorrect = true;
+        if (cleanSource.includes("hitchhiker") && cleanGuess.includes("42")) isCorrect = true;
+
+        isJudging = false;
+        return isCorrect;
+    }
+
+
+    // Convert input line to static output (echo what user typed)
+    function freezeInputLine(displayText = null) {
+        if (inputLine && userInput) {
+            const text = displayText !== null ? displayText : userInput.value;
+            const promptChar = inputLine.querySelector('.prompt-char').textContent;
+            inputLine.innerHTML = `<span class="prompt-char">${promptChar}</span><span class="cmd">${text}</span>`;
+            inputLine.classList.remove('terminal-input-line');
+            userInput = null;
+            inputLine = null;
+        }
+    }
+
+    async function handleInput(e) {
+        if (e.key === 'Enter' && !isJudging) {
+            // Handle game ended - restart
+            if (gameEnded) {
+                freezeInputLine('[Enter]');
+                restartGame();
+                return;
+            }
+
+            // Handle intro state - start the game
+            if (!gameStarted) {
+                gameStarted = true;
+                // Freeze input as [Enter] and start first question
+                freezeInputLine('[Enter]');
+                await addOutputLine(``, 50);
+                await startFirstQuestion();
+                return;
+            }
+
+            if (isShowingResult) {
+                // Freeze input as [Enter] and continue
+                freezeInputLine('[Enter]');
+                await addOutputLine(``, 50);
+                await loadNextPhrase();
+            } else {
+                const guess = userInput.value;
+                if (!guess.trim()) return;
+
+                stopSpinner();
+                // Freeze the input line with the user's guess
+                freezeInputLine();
+                await addOutputLine(`<span class="timestamp">[${getTimestamp()}]</span> <span class="dim">Consulting the digital spirits...</span>`, 50);
+
+                const data = phraseData[currentPhraseIndex];
+                const isCorrect = await mockLLMJudgment(guess, data.source);
+                showResult(isCorrect, data);
+            }
+        }
+        // Simulate the "esc to skip" feature
+        if (e.key === 'Escape' && !isShowingResult && !isJudging && gameStarted) {
+             stopSpinner();
+             // Freeze input as ^C skip
+             freezeInputLine('^C');
+             const data = phraseData[currentPhraseIndex];
+             showResult(false, data, true);
+        }
+    }
+
+    async function showResult(isCorrect, data, skipped = false) {
+        isShowingResult = true;
+
+        // Update score
+        if (skipped) {
+            score.skipped++;
+        } else if (isCorrect) {
+            score.correct++;
+        } else {
+            score.incorrect++;
+        }
+
+        // Add judgment output to terminal
+        await addOutputLine(getSeparator('─', 'dim'), 50);
+
+        if (skipped) {
+            await addOutputLine(`<span class="timestamp">[${getTimestamp()}]</span> <span class="dim">⊘ SKIPPED</span> — ${getRandomMessage(skipMessages)}`, 100);
+        } else if (isCorrect) {
+            await addOutputLine(`<span class="timestamp">[${getTimestamp()}]</span> <span class="success">✓ CORRECT!</span>`, 100);
+            await addOutputLine(`<span class="timestamp">[${getTimestamp()}]</span> <span class="dim">${getRandomMessage(correctMessages)}</span>`, 80);
+        } else {
+            await addOutputLine(`<span class="timestamp">[${getTimestamp()}]</span> <span style="color:var(--fail-color)">✗ WRONG</span>`, 100);
+            await addOutputLine(`<span class="timestamp">[${getTimestamp()}]</span> <span class="dim">${getRandomMessage(incorrectMessages)}</span>`, 80);
+        }
+
+        await addOutputLine(``, 60);
+        await addOutputLine(`<span class="dim">  Answer:</span> <span class="path">${data.source}</span>`, 80);
+        await addOutputLine(`<span class="dim">  Info:</span>   <span class="success">${data.expl || data.maexpl || ''}</span>`, 80);
+        await addOutputLine(`<span class="dim">  Link:</span>   <a href="${data.link}" target="_blank" rel="noopener noreferrer" style="color:var(--accent-color)">${formatLink(data.link)}</a>`, 80);
+        await addOutputLine(``, 80);
+        await addOutputLine(`<span class="dim blink-text">↵ Enter for next phrase...</span>`, 50);
+
+        // Create new input for continuing
+        createTerminalInput('press enter to continue...');
+    }
+
+    // --- INITIALIZATION ---
+    // Click anywhere in terminal body to focus input (terminal UX)
+    document.querySelector('.terminal-body').addEventListener('click', () => {
+        focusInput();
+    });
+
+    // --- INFO MODAL ---
+    const infoBtn = document.getElementById('info-btn');
+    const modalOverlay = document.getElementById('info-modal-overlay');
+    const modalClose = document.getElementById('modal-close');
+
+    infoBtn.addEventListener('click', () => {
+        modalOverlay.classList.add('visible');
+    });
+
+    modalClose.addEventListener('click', () => {
+        modalOverlay.classList.remove('visible');
+    });
+
+    modalOverlay.addEventListener('click', (e) => {
+        if (e.target === modalOverlay) {
+            modalOverlay.classList.remove('visible');
+        }
+    });
+
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modalOverlay.classList.contains('visible')) {
+            modalOverlay.classList.remove('visible');
+        }
+    });
+
+    showIntroSequence();
+
+</script>
+</body>
+</html>
